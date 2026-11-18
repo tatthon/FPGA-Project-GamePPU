@@ -1,0 +1,52 @@
+# Tiny Tapeout project information
+project:
+  title: "Vertical Platform Jumper"
+  author: ""
+  discord: ""
+  description: "640x480 VGA platform jumper with upward scrolling and writable RGB222 sprite tiles"
+  language: "Verilog"
+  clock_hz: 25175000
+
+  # Tile count is provisional. Check memory area in physical implementation.
+  tiles: "1x1"
+
+  top_module: "tt_um_vga_example"
+
+  source_files:
+    - "hsync_generator.v"
+    - "top_mario.v"
+    - "platform_game.v"
+    - "platform_map.v"
+    - "platform_renderer.v"
+    - "sprite_ram.v"
+    - "gamepad_pmod.v"
+
+pinout:
+  ui[0]: "Sprite RAM write enable"
+  ui[1]: "Set sprite RAM write address"
+  ui[2]: "Sprite bank for address setup"
+  ui[3]: ""
+  ui[4]: "Gamepad PMOD latch"
+  ui[5]: "Gamepad PMOD clock"
+  ui[6]: "Gamepad PMOD data"
+  ui[7]: ""
+
+  uo[0]: "R1"
+  uo[1]: "G1"
+  uo[2]: "B1"
+  uo[3]: "VSync"
+  uo[4]: "R0"
+  uo[5]: "G0"
+  uo[6]: "B0"
+  uo[7]: "HSync"
+
+  uio[0]: "Sprite pixel B0"
+  uio[1]: "Sprite pixel B1"
+  uio[2]: "Sprite pixel G0"
+  uio[3]: "Sprite pixel G1"
+  uio[4]: "Sprite pixel R0"
+  uio[5]: "Sprite pixel R1"
+  uio[6]: "Sprite pixel opacity"
+  uio[7]: ""
+
+yaml_version: 6

@@ -1,0 +1,158 @@
+`timescale 1ns / 1ps
+
+// Vertical platform jumper with a gamepad-controlled character.
+// Compatible with the original Tiny Tapeout VGA pin assignment.
+module tt_um_vga_example #(
+    parameter PLAYER_INIT_FILE = "../data/player_tiles.mem",
+    parameter PLATFORM_INIT_FILE = "../data/platform_tiles.mem"
+) (
+    input  wire [7:0] ui_in,
+    output wire [7:0] uo_out,
+    input  wire [7:0] uio_in,
+    output wire [7:0] uio_out,
+    output wire [7:0] uio_oe,
+    input  wire       ena,
+    input  wire       clk,
+    input  wire       rst_n
+);
+    wire hsync_raw, vsync_raw, display_on_raw;
+    wire [9:0] pix_x, pix_y;
+
+    hvsync_generator vga_sync_gen (
+        .clk(clk),
+        .reset(~rst_n),
+        .hsync(hsync_raw),
+        .vsync(vsync_raw),
+        .display_on(display_on_raw),
+        .hpos(pix_x),
+        .vpos(pix_y)
+    );
+
+    wire pad_left, pad_right, pad_a;
+    gamepad_pmod_single gamepad (
+        .rst_n(rst_n),
+        .clk(clk),
+        .pmod_latch(ui_in[4]),
+        .pmod_clk(ui_in[5]),
+        .pmod_data(ui_in[6]),
+        .b(), .y(), .select(), .start(), .up(), .down(),
+        .left(pad_left),
+        .right(pad_right),
+        .a(pad_a), .x(), .l(), .r(), .is_present()
+    );
+
+    wire frame_tick = (pix_x == 10'd0) && (pix_y == 10'd480);
+    localparam [9:0] PLAYER_WIDTH = 10'd32;
+    localparam [9:0] PLAYER_HEIGHT = 10'd48;
+    wire [9:0] player_x, player_feet_y;
+    wire [8:0] camera_y;
+    wire player_right, grounded, walk_frame, falling;
+    platform_game #(.PLAYER_WIDTH(PLAYER_WIDTH)) game (
+        .clk(clk),
+        .rst_n(rst_n),
+        .frame_tick(frame_tick),
+        .pad_left(pad_left),
+        .pad_right(pad_right),
+        .pad_a(pad_a),
+        .player_x(player_x),
+        .player_feet_y(player_feet_y),
+        .camera_y(camera_y),
+        .player_right(player_right),
+        .grounded(grounded),
+        .walk_frame(walk_frame),
+        .falling(falling)
+    );
+
+    // Stream pixels into either atlas using the spare input pins.
+    // Addresses 0-767 are player pixels, 768-959 are platform pixels.
+    localparam [9:0] PLATFORM_BASE = 10'd768;
+    localparam [9:0] LAST_SPRITE_ADDR = 10'd959;
+    reg [9:0] write_addr;
+    wire sprite_write = rst_n && ui_in[0] && !ui_in[1];
+    wire writing_platform = (write_addr >= PLATFORM_BASE);
+    always @(posedge clk) begin
+        if (!rst_n)
+            write_addr <= 10'd0;
+        else if (ui_in[1])
+            write_addr <= ui_in[2] ? PLATFORM_BASE : 10'd0;
+        else if (sprite_write)
+            write_addr <= (write_addr == LAST_SPRITE_ADDR) ? 10'd0 : write_addr + 10'd1;
+    end
+
+    wire [8:0] world_y = pix_y[8:0] + camera_y;
+    wire [5:0] bg_color;
+    platform_renderer #(.INIT_FILE(PLATFORM_INIT_FILE)) background (
+        .clk(clk),
+        .rst_n(rst_n),
+        .x(pix_x),
+        .world_y(world_y),
+        .write_en(sprite_write && writing_platform),
+        .write_addr(write_addr[7:0]),
+        .write_pixel(uio_in[6:0]),
+        .color(bg_color)
+    );
+
+    // Twelve 8x8 tiles, drawn at 2x scale. Bit 6 marks an opaque pixel.
+    // The poses share the top four tiles and use separate bottom pairs.
+    wire [9:0] player_top = player_feet_y - PLAYER_HEIGHT;
+    wire [9:0] sprite_dx = pix_x - player_x;
+    wire [9:0] sprite_dy = pix_y - player_top;
+    wire sprite_in_box = (sprite_dx < PLAYER_WIDTH) && (sprite_dy < PLAYER_HEIGHT);
+    wire [3:0] sprite_x = player_right ? sprite_dx[4:1] : ~sprite_dx[4:1];
+    wire [4:0] sprite_y = sprite_dy[5:1];
+    wire [2:0] leg_tile_row = grounded ? {2'b01, walk_frame} : {2'b10, falling};
+    wire [2:0] tile_row = sprite_y[4] ? leg_tile_row : {2'b00, sprite_y[3]};
+    wire [9:0] sprite_address = {tile_row, sprite_x[3], sprite_y[2:0], sprite_x[2:0]};
+
+    wire [6:0] sprite_pixel_d1;
+    sprite_ram #(.INIT_FILE(PLAYER_INIT_FILE)) player_tiles (
+        .clk(clk),
+        .read_addr(sprite_address),
+        .read_pixel(sprite_pixel_d1),
+        .write_en(sprite_write && !writing_platform),
+        .write_addr(write_addr),
+        .write_pixel(uio_in[6:0])
+    );
+
+    reg sprite_in_box_d1;
+    reg [6:0] sprite_pixel_d2;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            sprite_in_box_d1 <= 1'b0;
+            sprite_pixel_d2 <= 7'd0;
+        end else begin
+            sprite_in_box_d1 <= sprite_in_box;
+            sprite_pixel_d2 <= sprite_in_box_d1 ? sprite_pixel_d1 : 7'd0;
+        end
+    end
+
+    wire [5:0] final_color = sprite_pixel_d2[6] ? sprite_pixel_d2[5:0] : bg_color;
+
+    // The tile pipeline delays RGB by 2 cycles compared with pixel coordinates.
+    // VGA sync generator already registers sync once, so delay sync 1 more.
+    reg active_d1, active_d2;
+    reg hsync_d1, vsync_d1;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            active_d1 <= 1'b0;
+            active_d2 <= 1'b0;
+            hsync_d1 <= 1'b1;
+            vsync_d1 <= 1'b1;
+        end else begin
+            active_d1 <= display_on_raw;
+            active_d2 <= active_d1;
+            hsync_d1 <= hsync_raw;
+            vsync_d1 <= vsync_raw;
+        end
+    end
+
+    wire [1:0] R = active_d2 ? final_color[5:4] : 2'b00;
+    wire [1:0] G = active_d2 ? final_color[3:2] : 2'b00;
+    wire [1:0] B = active_d2 ? final_color[1:0] : 2'b00;
+
+    assign uo_out = {hsync_d1, B[0], G[0], R[0],
+                     vsync_d1, B[1], G[1], R[1]};
+    assign uio_out = 8'b0;
+    assign uio_oe  = 8'b0;
+    wire _unused_ok = &{ena, ui_in, uio_in};
+endmodule
