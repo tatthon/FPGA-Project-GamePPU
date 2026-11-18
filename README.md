@@ -19,8 +19,8 @@ The player can jump through platforms from below and lands when their feet cross
 
 | Bank | Initial pixels | Stream address range |
 | --- | --- | --- |
-| Player | `data/player_tiles.mem`, twelve 8 × 8 tiles | 0–767 |
-| Platform | `data/platform_tiles.mem`, three 8 × 8 tiles in left, middle, right order | 768–959 |
+| Player | Twelve 8 × 8 tiles, also available in `data/player_tiles.mem` | 0–767 |
+| Platform | Three 8 × 8 tiles in left, middle, right order, also available in `data/platform_tiles.mem` | 768–959 |
 
 The memory files list pixels tile by tile in row-major order. Each pixel uses bit 6 for opacity and bits 5:0 for RGB222. The renderer doubles each source pixel in both directions. The VGA background behind transparent pixels is solid blue. Changing platform graphics leaves the 96 × 16 display bounds and platform collision geometry fixed.
 
@@ -30,7 +30,7 @@ Drive the inputs synchronously to `clk` and hold `ui_in[0:2]` low during ordinar
 
 1. With `rst_n` high, assert `ui_in[1]` for one rising edge. Set `ui_in[2]` to 0 for address 0 (player) or 1 for address 768 (platform).
 2. Deassert `ui_in[1]`. Drive the next pixel on `uio_in[6:0]` and assert `ui_in[0]`. Each rising edge writes one pixel and advances the address. The address wraps from 959 to 0.
-3. Deassert `ui_in[0]` to stop writing. Reset sets the write address to 0 and preserves RAM contents. The memory files supply the initial graphics when the FPGA configuration is loaded.
+3. Deassert `ui_in[0]` to stop writing. Reset sets the write address to 0 and preserves RAM contents. The embedded graphics initialize the RAM when the FPGA configuration is loaded.
 
 ## Top module and pins
 
@@ -45,12 +45,11 @@ The top module is `tt_um_vga_example`. Gamepad PMOD latch, clock, and data are o
 
 ## Build and simulation
 
-Run tools from `src/` so the default `$readmemh` paths resolve to `../data/`. To use a different working directory, override the top parameters `PLAYER_INIT_FILE` and `PLATFORM_INIT_FILE`.
+The default tiles are embedded in Verilog and can be loaded from any build directory. To load custom graphics from files instead, set the top parameters `PLAYER_INIT_FILE` and `PLATFORM_INIT_FILE` to paths that the simulator or FPGA build tool can resolve.
 
 ```bash
-cd src
-iverilog -g2012 -Wall -s tt_um_vga_example -o sim.vvp top_mario.v hsync_generator.v gamepad_pmod.v platform_game.v platform_map.v platform_renderer.v sprite_ram.v
+iverilog -g2012 -Wall -s tt_um_vga_example -o sim.vvp src/top_mario.v src/hsync_generator.v src/gamepad_pmod.v src/platform_game.v src/platform_map.v src/platform_renderer.v src/sprite_ram.v
 vvp sim.vvp
 ```
 
-The command checks compilation and memory initialization. A testbench must drive the clock, reset, and gamepad to simulate gameplay. Include both memory files in the FPGA build and check the synthesis report for RAM inference and initialization. The Tiny Tapeout tile size in `info.yaml` is provisional.
+The command checks compilation and memory initialization. A testbench must drive the clock, reset, and gamepad to simulate gameplay. Check the FPGA synthesis report for RAM inference and initialization. The Tiny Tapeout tile size in `info.yaml` is provisional.

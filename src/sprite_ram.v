@@ -5,7 +5,8 @@
 module sprite_ram #(
     parameter ADDR_WIDTH = 10,
     parameter PIXEL_COUNT = 768,
-    parameter INIT_FILE = "../data/player_tiles.mem"
+    parameter INIT_FILE = "",
+    parameter [8*PIXEL_COUNT-1:0] INIT_PIXELS = 0
 ) (
     input  wire                  clk,
     input  wire [ADDR_WIDTH-1:0] read_addr,
@@ -15,7 +16,16 @@ module sprite_ram #(
     input  wire [6:0]            write_pixel
 );
     reg [6:0] pixels [0:PIXEL_COUNT-1];
-    initial $readmemh(INIT_FILE, pixels);
+    integer i;
+    initial begin
+        if (INIT_FILE != "") begin
+            $readmemh(INIT_FILE, pixels);
+        end else begin
+            // The most significant byte is pixel zero.
+            for (i = 0; i < PIXEL_COUNT; i = i + 1)
+                pixels[i] = INIT_PIXELS[8*(PIXEL_COUNT-1-i) +: 7];
+        end
+    end
 
     always @(posedge clk) begin
         if (write_en)

@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module platform_renderer #(
-    parameter INIT_FILE = "../data/platform_tiles.mem"
+    parameter INIT_FILE = ""
 ) (
     input  wire       clk,
     input  wire       rst_n,
@@ -13,6 +13,36 @@ module platform_renderer #(
     output reg  [5:0] color
 );
     localparam [5:0] SKY_COLOR = 6'h0b;
+    // Embedded defaults match data/platform_tiles.mem, one literal per row.
+    localparam [8*192-1:0] PLATFORM_PIXELS = {
+        64'h446c6c6c6c6c6c6c,
+        64'h445858586c58586c,
+        64'h4458545458585858,
+        64'h4454645454645464,
+        64'h4451646474646464,
+        64'h4451645164646551,
+        64'h0044515151516451,
+        64'h0000444444444444,
+
+        64'h6c6c6c6c6c6c6c6c,
+        64'h6c5858586c58586c,
+        64'h5858545458585858,
+        64'h5464645454645464,
+        64'h6464647464646464,
+        64'h6451646465516474,
+        64'h5151516451515151,
+        64'h4444444444444444,
+
+        64'h6c6c6c6c6c6c6c44,
+        64'h6c58586c58585844,
+        64'h5858585854545844,
+        64'h6454645454645444,
+        64'h6464647464645144,
+        64'h5165646451645144,
+        64'h5164515151514400,
+        64'h4444444444440000
+    };
+
     wire [9:0] left_edge, right_edge;
     platform_map visible_platform (
         .row(world_y[8:6]),
@@ -31,7 +61,8 @@ module platform_renderer #(
     sprite_ram #(
         .ADDR_WIDTH(8),
         .PIXEL_COUNT(192),
-        .INIT_FILE(INIT_FILE)
+        .INIT_FILE(INIT_FILE),
+        .INIT_PIXELS(PLATFORM_PIXELS)
     ) platform_tiles (
         .clk(clk),
         .read_addr(read_addr),
