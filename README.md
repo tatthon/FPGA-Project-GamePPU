@@ -1,14 +1,14 @@
 # Vertical Platform Jumper
 
-A Verilog game for 640 × 480 VGA at a 25.175 MHz pixel clock. Jump up a repeating course of grass platforms with Gamepad PMOD controller 1.
+A Verilog game for 640 × 480 VGA at a 25.175 MHz pixel clock. Jump from grass platforms into space with Gamepad PMOD controller 1.
 
 | Input | Action |
 | --- | --- |
 | D-pad Left or Right | Move four pixels per frame, including in midair |
-| A | Jump from a platform. Release and press again for the next jump. |
+| A | Jump from a platform. After winning, press A again to restart. |
 | `rst_n = 0` | Return the player and camera to the starting platform |
 
-The player can jump through platforms from below and lands when their feet cross a platform's top while descending. Platforms are 96 pixels wide and spaced 64 pixels apart vertically. The camera follows upward once the player's feet reach screen Y=240. The eight-row layout repeats every 512 world pixels, so the climb can continue across repeated layouts. Falling entirely below the visible screen returns the player to the start.
+The player can jump through platforms from below and lands when their feet cross a platform's top while descending. Platforms are 96 pixels wide and spaced 64 pixels apart vertically. The camera follows upward once the player's feet reach screen Y=240. The sky darkens with altitude and stars appear from 512 pixels above the starting platform. The checkered finish is 16 platforms up, at 1,024 pixels. Landing on it turns the checkerboard gold and ends the run. Falling entirely below the visible screen returns the player to the start.
 
 ## Rendering and sprite RAM
 
@@ -22,7 +22,7 @@ The player can jump through platforms from below and lands when their feet cross
 | Player | Twelve 8 × 8 tiles, also available in `data/player_tiles.mem` | 0–767 |
 | Platform | Three 8 × 8 tiles in left, middle, right order, also available in `data/platform_tiles.mem` | 768–959 |
 
-The memory files list pixels tile by tile in row-major order. Each pixel uses bit 6 for opacity and bits 5:0 for RGB222. The renderer doubles each source pixel in both directions. The VGA background behind transparent pixels is solid blue. Changing platform graphics leaves the 96 × 16 display bounds and platform collision geometry fixed.
+The memory files list pixels tile by tile in row-major order. Each pixel uses bit 6 for opacity and bits 5:0 for RGB222. The renderer doubles each source pixel in both directions. The sky and finish checkerboard are drawn in logic. Changing platform graphics leaves the 96 × 16 display bounds and platform collision geometry fixed.
 
 ### Loading pixels at runtime
 

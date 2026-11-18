@@ -44,10 +44,16 @@ module tt_um_vga_example #(
     wire frame_tick = (pix_x == 10'd0) && (pix_y == 10'd480);
     localparam [9:0] PLAYER_WIDTH = 10'd32;
     localparam [9:0] PLAYER_HEIGHT = 10'd48;
+    localparam [9:0] START_Y = 10'd448;
+    localparam [11:0] FINISH_HEIGHT = 12'd1024;
     wire [9:0] player_x, player_feet_y;
-    wire [8:0] camera_y;
-    wire player_right, grounded, walk_frame, falling;
-    platform_game #(.PLAYER_WIDTH(PLAYER_WIDTH)) game (
+    wire [11:0] camera_height;
+    wire player_right, grounded, walk_frame, falling, won;
+    platform_game #(
+        .PLAYER_WIDTH(PLAYER_WIDTH),
+        .START_Y(START_Y),
+        .FINISH_HEIGHT(FINISH_HEIGHT)
+    ) game (
         .clk(clk),
         .rst_n(rst_n),
         .frame_tick(frame_tick),
@@ -56,11 +62,12 @@ module tt_um_vga_example #(
         .pad_a(pad_a),
         .player_x(player_x),
         .player_feet_y(player_feet_y),
-        .camera_y(camera_y),
+        .camera_height(camera_height),
         .player_right(player_right),
         .grounded(grounded),
         .walk_frame(walk_frame),
-        .falling(falling)
+        .falling(falling),
+        .won(won)
     );
 
     // Stream pixels into either atlas using the spare input pins.
@@ -79,13 +86,20 @@ module tt_um_vga_example #(
             write_addr <= (write_addr == LAST_SPRITE_ADDR) ? 10'd0 : write_addr + 10'd1;
     end
 
-    wire [8:0] world_y = pix_y[8:0] + camera_y;
+    wire signed [13:0] height = $signed({2'b0, camera_height}) +
+                                $signed({4'b0, START_Y}) -
+                                $signed({4'b0, pix_y});
     wire [5:0] bg_color;
-    platform_renderer #(.INIT_FILE(PLATFORM_INIT_FILE)) background (
+    platform_renderer #(
+        .INIT_FILE(PLATFORM_INIT_FILE),
+        .START_Y(START_Y),
+        .FINISH_HEIGHT(FINISH_HEIGHT)
+    ) background (
         .clk(clk),
         .rst_n(rst_n),
         .x(pix_x),
-        .world_y(world_y),
+        .height(height),
+        .won(won),
         .write_en(sprite_write && writing_platform),
         .write_addr(write_addr[7:0]),
         .write_pixel(uio_in[6:0]),

@@ -3,7 +3,7 @@ project:
   title: "Vertical Platform Jumper"
   author: ""
   discord: ""
-  description: "640x480 VGA platform jumper with upward scrolling and writable RGB222 sprite tiles"
+  description: "640x480 VGA platform jumper with a finish line in space and writable RGB222 sprite tiles"
   language: "Verilog"
   clock_hz: 25175000
 
